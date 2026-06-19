@@ -1,64 +1,206 @@
-# DotlottieAngular
+# dotlottie-angular
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.0.
+Angular wrapper for [`@lottiefiles/dotlottie-web`](https://github.com/LottieFiles/dotlottie-web) —
+the official Rust/WASM-powered Lottie & dotLottie player.
 
-## Code scaffolding
+## Files
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
+```
+index.ts                      ← public barrel
+lib/
+  dotlottie.types.ts          ← shared TypeScript types
+  dotlottie.component.ts      ← <dot-lottie> standalone component
+  dotlottie.directive.ts      ← canvas[dotLottie] standalone directive
+  dotlottie.service.ts        ← DotLottieService (imperative / shared instances)
+  dotlottie.module.ts         ← NgModule for non-standalone apps
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+---
+
+## Installation
 
 ```bash
-ng generate --help
+npm install @lottiefiles/dotlottie-web
+# copy the lib/ folder into your project's shared library, e.g. src/lib/dotlottie/
 ```
 
-## Building
+---
 
-To build the library, run:
+## Usage
 
-```bash
-ng build dotlottie-angular
+### 1. Component (recommended for most cases)
+
+Drop `<dot-lottie>` anywhere in a template. Size it with Tailwind or plain CSS —
+the inner `<canvas>` fills the host element automatically.
+
+```html
+<!-- standalone app.component.html -->
+<dot-lottie
+  src="assets/animations/welcome.lottie"
+  [loop]="true"
+  [autoplay]="true"
+  [speed]="1"
+  class="w-36 h-36"
+  (playerReady)="onReady($event)"
+  (complete)="onComplete()"
+></dot-lottie>
 ```
 
-This command will compile your project, and the build artifacts will be placed in the `dist/` directory.
+```ts
+// app.component.ts
+import { DotLottieComponent } from '@/lib/dotlottie';
+import type { DotLottie } from '@/lib/dotlottie';
 
-### Publishing the Library
+@Component({
+  standalone: true,
+  imports: [DotLottieComponent],
+  templateUrl: './app.component.html',
+})
+export class AppComponent {
+  onReady(player: DotLottie) {
+    console.log('total frames:', player.totalFrames);
+  }
 
-Once the project is built, you can publish your library by following these steps:
-
-1. Navigate to the `dist` directory:
-
-   ```bash
-   cd dist/dotlottie-angular
-   ```
-
-2. Run the `npm publish` command to publish your library to the npm registry:
-   ```bash
-   npm publish
-   ```
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
+  onComplete() {
+    console.log('animation finished');
+  }
+}
 ```
 
-## Running end-to-end tests
+### 2. Directive (use on your own `<canvas>`)
 
-For end-to-end (e2e) testing, run:
+Use `canvas[dotLottie]` when you need to own the canvas element directly —
+useful for custom `id`, `aria-*`, or fixed pixel dimensions.
 
-```bash
-ng e2e
+```html
+<canvas
+  dotLottie
+  [src]="animSrc"
+  [loop]="true"
+  [autoplay]="true"
+  width="200"
+  height="200"
+  class="rounded-xl"
+  (complete)="onDone()"
+></canvas>
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+```ts
+import { DotLottieDirective } from '@/lib/dotlottie';
 
-## Additional Resources
+@Component({
+  standalone: true,
+  imports: [DotLottieDirective],
+  template: `...`,
+})
+export class MyComponent {
+  animSrc = 'assets/animations/success.lottie';
+}
+```
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+### 3. Service (imperative / shared instances)
+
+Use `DotLottieService` to create and control players from TypeScript —
+useful for route-level pre-loading or cross-component control.
+
+```ts
+import { DotLottieService } from '@/lib/dotlottie';
+
+@Component({ ... })
+export class HeroComponent implements AfterViewInit {
+  @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
+
+  constructor(private lottie: DotLottieService) {}
+
+  ngAfterViewInit() {
+    this.lottie.create('hero', {
+      canvas: this.canvasRef.nativeElement,
+      src: 'assets/hero.lottie',
+      autoplay: false,
+      loop: true,
+    });
+  }
+
+  play()  { this.lottie.play('hero');  }
+  pause() { this.lottie.pause('hero'); }
+
+  ngOnDestroy() {
+    this.lottie.destroy('hero');
+  }
+}
+```
+
+### 4. NgModule (non-standalone apps)
+
+```ts
+import { DotLottieModule } from '@/lib/dotlottie';
+
+@NgModule({
+  imports: [DotLottieModule],
+})
+export class AppModule {}
+```
+
+---
+
+## All Inputs
+
+| Input                    | Type                  | Default       | Description                                   |
+|--------------------------|-----------------------|---------------|-----------------------------------------------|
+| `src` *(required)*       | `string`              | —             | URL or data-URI of `.lottie` / `.json` file   |
+| `autoplay`               | `boolean`             | `true`        | Start playing immediately after load          |
+| `loop`                   | `boolean`             | `false`       | Loop the animation                            |
+| `speed`                  | `number`              | `1`           | Playback speed multiplier                     |
+| `backgroundColor`        | `string`              | `''`          | CSS color string for canvas background        |
+| `mode`                   | `Mode`                | `'forward'`   | `forward` / `reverse` / `bounce` / `reverse-bounce` |
+| `segment`                | `[number, number]`    | `undefined`   | `[startFrame, endFrame]` to play              |
+| `useFrameInterpolation`  | `boolean`             | `true`        | Smooth sub-frame playback                     |
+| `renderConfig`           | `RenderConfig`        | `undefined`   | `{ autoResize, devicePixelRatio, freezeOnOffscreen }` |
+| `layout`                 | `Layout`              | `undefined`   | `{ fit, align }` — controls canvas layout     |
+| `animationId`            | `string`              | `undefined`   | For multi-animation `.lottie` files           |
+| `themeId`                | `string`              | `undefined`   | Theme ID from `.lottie` manifest              |
+| `stateMachineId`         | `string`              | `undefined`   | State machine to activate after load          |
+
+---
+
+## All Outputs
+
+| Output                                    | Payload                                            |
+|-------------------------------------------|----------------------------------------------------|
+| `playerReady`                             | `DotLottie` instance                               |
+| `load`                                    | `void`                                             |
+| `loadError`                               | `{ error: Error }`                                 |
+| `ready`                                   | `void`                                             |
+| `play`                                    | `void`                                             |
+| `pause`                                   | `void`                                             |
+| `stop`                                    | `void`                                             |
+| `complete`                                | `void`                                             |
+| `loop`                                    | `{ loopCount: number }`                            |
+| `frame`                                   | `{ currentFrame: number }`                         |
+| `render`                                  | `{ currentFrame: number }`                         |
+| `freeze`                                  | `void`                                             |
+| `unfreeze`                                | `void`                                             |
+| `destroy`                                 | `void`                                             |
+| `stateMachineStart`                       | `void`                                             |
+| `stateMachineStop`                        | `void`                                             |
+| `stateMachineTransition`                  | `{ fromState: string; toState: string }`           |
+| `stateMachineStateEntered`                | `{ state: string }`                                |
+| `stateMachineBooleanInputValueChange`     | `{ inputName, oldValue, newValue: boolean }`       |
+| `stateMachineNumericInputValueChange`     | `{ inputName, oldValue, newValue: number }`        |
+
+---
+
+## Accessing the player instance via template reference
+
+```html
+<dot-lottie
+  #lottie
+  src="assets/confetti.lottie"
+  [autoplay]="false"
+  class="w-24 h-24"
+></dot-lottie>
+
+<button (click)="lottie.play_anim()">Play</button>
+<button (click)="lottie.pause_anim()">Pause</button>
+<button (click)="lottie.seekToFrame(0)">Reset</button>
+```
