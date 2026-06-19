@@ -1,9 +1,18 @@
 {
-  "name": "dotlottie-angular",
+  "name": "@aliabbas101/dotlottie-angular",
   "version": "0.0.1",
+  "description": "Angular wrapper for @lottiefiles/dotlottie-web",
+  "keywords": ["angular", "lottie", "dotlottie", "animation", "wrapper"],
+  "author": "Syed Ali Rizvi <aliabbas7861@outlook.com> (https://syedalirizvi.dev)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aliabbas101/dotlottie-angular.git"
+  },
   "peerDependencies": {
     "@angular/common": "^21.2.0",
-    "@angular/core": "^21.2.0"
+    "@angular/core": "^21.2.0",
+    "@lottiefiles/dotlottie-web": "^0.74.0"
   },
   "dependencies": {
     "tslib": "^2.3.0"
